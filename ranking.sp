@@ -102,6 +102,8 @@ public void OnMapStart() {
 }
 
 public Action:TimeCount (Handle timer) {
+	char query[254];
+	char steamID[32];
 	for (int i = 1; i <= MaxClients; i++) {
 		if (IsClientInGame(i) && !IsFakeClient(i)) {
 			if (GetClientTeam(i) == 2) {
@@ -112,7 +114,16 @@ public Action:TimeCount (Handle timer) {
 				timePlayedSpec[i]++;
 			}
 			timePlayedTotal[i] = timePlayedT[i] + timePlayedCT[i] + timePlayedSpec[i];
+			GetClientAuthId(i, AuthId_Steam2, steamID, sizeof(steamID));
+			Format(query, sizeof(query), "UPDATE timerank SET timeT = '%i', timeCT = '%i', timeTotal = '%i' WHERE steamid = '%s'", timePlayedT[i], timePlayedCT[i], timePlayedTotal[i], steamID);
+			SQL_TQuery(db, TimeCountCallback, query);
 		}
+	}
+}
+
+public void TimeCountCallback (Handle owner, Handle hndl, char[] error, any data) {
+	if (hndl == INVALID_HANDLE) {
+		LogError("%", error);
 	}
 }
 
