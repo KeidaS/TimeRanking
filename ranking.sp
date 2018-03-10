@@ -18,6 +18,8 @@ int seconds = 0;
 int minutes = 0;
 int hours = 0;
 
+bool playerReaded[MAXPLAYERS + 1] = false;
+
 char queryBuffer[3096];
 
 Handle db = INVALID_HANDLE;
@@ -29,7 +31,7 @@ int timePlayedSpec[MAXPLAYERS + 1];
 
 public void OnPluginStart()
 {
-	RegConsoleCmd("timeplayed", Show_rank, "Shows ranking menu");
+	RegConsoleCmd("rank", Show_rank, "Shows ranking menu");
 	ConnectDB();
 }
 
@@ -72,6 +74,7 @@ public void OnClientPostAdminCheckCallback(Handle owner, Handle hndl, char[] err
 		timePlayedT[client] = SQL_FetchInt(hndl, 0);
 		timePlayedCT[client] = SQL_FetchInt(hndl, 1);
 		timePlayedTotal[client] = SQL_FetchInt(hndl, 2);
+		playerReaded[client] = true;
 	}
 }
 
@@ -94,6 +97,7 @@ public void InsertClientToTableCallback(Handle owner, Handle hndl, char[] error,
 		timePlayedT[client] = 0;
 		timePlayedCT[client] = 0;
 		timePlayedTotal[client] = 0;
+		playerReaded[client] = true;
 	}
 }
 
@@ -102,8 +106,6 @@ public void OnMapStart() {
 }
 
 public Action:TimeCount (Handle timer) {
-	char query[254];
-	char steamID[32];
 	for (int i = 1; i <= MaxClients; i++) {
 		if (IsClientInGame(i) && !IsFakeClient(i)) {
 			if (GetClientTeam(i) == 2) {
@@ -114,14 +116,11 @@ public Action:TimeCount (Handle timer) {
 				timePlayedSpec[i]++;
 			}
 			timePlayedTotal[i] = timePlayedT[i] + timePlayedCT[i] + timePlayedSpec[i];
-			GetClientAuthId(i, AuthId_Steam2, steamID, sizeof(steamID));
-			Format(query, sizeof(query), "UPDATE timerank SET timeT = '%i', timeCT = '%i', timeTotal = '%i' WHERE steamid = '%s'", timePlayedT[i], timePlayedCT[i], timePlayedTotal[i], steamID);
-			SQL_TQuery(db, TimeCountCallback, query);
 		}
 	}
 }
 
-public void TimeCountCallback (Handle owner, Handle hndl, char[] error, any data) {
+public void UpdateRankCallback (Handle owner, Handle hndl, char[] error, any data) {
 	if (hndl == INVALID_HANDLE) {
 		LogError("%", error);
 	}
@@ -132,25 +131,27 @@ public void OnMapEnd() {
 		LogError("ERROR CONNECTING TO THE DB"); 
 	} else {
 		for (int i = 1; i <= MaxClients; i++) {
-			if (IsClientInGame(i) && !IsFakeClient(i)) {
+			if (IsClientInGame(i) && !IsFakeClient(i) && playerReaded[i]) {
 				SaveTime(i);
 				timePlayedTotal[i] = 0;
 				timePlayedT[i] = 0;
 				timePlayedCT[i] = 0;
 				timePlayedSpec[i] = 0;
+				playerReaded[i] = false;
 			}
 		}
 	}
 }
 
 public void OnClientDisconnect(int client) {
-	if (!IsFakeClient(client)) {
+	if (!IsFakeClient(client) && playerReaded[client]) {
 		SaveTime(client);
 	}
 	timePlayedTotal[client] = 0;
 	timePlayedT[client] = 0;
 	timePlayedCT[client] = 0;
 	timePlayedSpec[client] = 0;
+	playerReaded[client] = false;
 }
 
 public void SaveTime(int client) {
@@ -170,7 +171,22 @@ public void SaveTimeCallback(Handle owner, Handle hndl, char[] error, any data) 
 	}
 }
 
+public void UpdateRank() {
+	char query[254];
+	char steamID[32];
+	for (int i = 1; i <= MaxClients; i++) {
+		if (IsClientInGame(i) && !IsFakeClient(i)) {
+			GetClientAuthId(i, AuthId_Steam2, steamID, sizeof(steamID));
+			if (playerReaded[i]) {
+				Format(query, sizeof(query), "UPDATE timerank SET timeT = '%i', timeCT = '%i', timeTotal = '%i' WHERE steamid = '%s'", timePlayedT[i], timePlayedCT[i], timePlayedTotal[i], steamID);
+				SQL_TQuery(db, UpdateRankCallback, query);		
+			}
+		}
+	}	
+}
+
 public Action Show_rank(int client, int args) {
+	UpdateRank();
 	Menu menu = new Menu(MenuHandler_Rank, MenuAction_Start | MenuAction_Select | MenuAction_End);
 	menu.SetTitle("Time ranking");
 	menu.AddItem("Total time ranking", "Total time ranking");
@@ -214,7 +230,6 @@ public int MenuHandler_Rank(Menu menu, MenuAction action, int param1, int param2
 }
 
 public void ShowRank(int client, char[] typeRank) {
-	PrintToChat(client, "%s", typeRank);
 	char query[254];
 	if (StrEqual (typeRank, "timeTotal")) {
 		Format(query, sizeof(query), "SELECT name, timeTotal FROM timerank ORDER BY timeTotal DESC LIMIT 999");
@@ -236,14 +251,14 @@ public void ShowRankCallback(Handle owner, Handle hndl, char[] error, any data) 
 		int time;
 		char name[64];
 		char rank[128];
-		Menu menu = new Menu(MenuHandler_ShowRank, MenuAction_Start | MenuAction_Select | MenuAction_End);
+		Menu menu = new Menu(MenuHandler_ShowRank, MenuAction_Start | MenuAction_Select | MenuAction_End | MenuAction_Cancel);
 		menu.SetTitle("Time ranking");
 		while (SQL_FetchRow(hndl)) {
 			rankPosition++;
 			SQL_FetchString(hndl, 0, name, sizeof(name));
 			time = SQL_FetchInt(hndl, 1);
 			ConverseTime(time);
-			Format(rank, sizeof(rank), "%i %s %i h %i m %i s", rankPosition, name, hours, minutes, seconds);
+			Format(rank, sizeof(rank), "%i %s - %i h %i m %i s", rankPosition, name, hours, minutes, seconds);
 			menu.AddItem("Rank", rank);
 		}
 		menu.ExitButton = true;
