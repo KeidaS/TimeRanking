@@ -18,6 +18,6 @@ For using this plugin you need to add this to your databses.cfg file (the file i
   
   Images:
   
-  https://i.imgur.com/I3mf3pO.jpg
+  ![Ranking menu](https://i.imgur.com/I3mf3pO.jpg)
   
-  https://i.imgur.com/DI5Q7PE.jpg
+  ![Total time ranking](https://i.imgur.com/DI5Q7PE.jpg)
