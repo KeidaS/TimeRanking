@@ -263,9 +263,13 @@ public void ShowRankCallback(Handle owner, Handle hndl, char[] error, any data) 
 		}
 		menu.ExitButton = true;
 		menu.ExitBackButton = true;
+		SetMenuExitBackButton(menu, true);
 		menu.Display(client,MENU_TIME_FOREVER);
 	}
 }
 
 public int MenuHandler_ShowRank(Menu menu, MenuAction action, int param1, int param2) {
+	if (action == MenuAction_Cancel) {
+		Show_rank(param1, 0);
+	}
 }
