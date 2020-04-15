@@ -14,7 +14,7 @@ For using this plugin you need to add this to your databses.cfg file (the file i
 		"user"				"YOUR USER"
 		"pass"				"YOUR PASSWORD"
 	}
-  ```
+  ´´´
   
   Images:
   
